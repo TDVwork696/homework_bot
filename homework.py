@@ -43,17 +43,16 @@ logger.addHandler(handler)
 
 def check_tokens():
     """Проверка наличия всех переменных окружения."""
-    tokens = [
-        PRACTICUM_TOKEN,
-        TELEGRAM_TOKEN,
-        TELEGRAM_CHAT_ID]
+    tokens = {
+        'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
+        'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
+        'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID}
     tokens_error = [None, '', ' ']
     token_faild = []
     for token in tokens:
-        if token in tokens_error:
+        if tokens[token] in tokens_error:
             token_faild.append(token)
-
-    return all(token_faild)
+    return ", ".join(token_faild)
 
 
 def send_message(bot, message):
@@ -93,15 +92,14 @@ def check_response(response):
 
 def parse_status(homework):
     """Проверка статуса домашней работы."""
-    keys_homework = []
     anticipated_keys = ['homework_name', 'status']
-    for keys in homework:
-        keys_homework.append(keys)
-    if ('homework_name' and 'status') in keys_homework:
-        homework_name = homework.get('homework_name')
-        homework_status = homework.get('status')
-    else:
-        raise KeyError('В ответе API отсутствует имя работы или статус')
+    for key in anticipated_keys:
+        if key in homework:
+            homework_name = homework.get('homework_name')
+            homework_status = homework.get('status')
+        else:
+            raise KeyError(
+                f'В ответе API отсутствует имя работы или статус {key}')
     for key in anticipated_keys:
         if not homework.get(key):
             raise KeyError(f'В ответе API отсутствует ключ {key}')
@@ -122,9 +120,11 @@ def main():
     send_message(bot, 'Start')
     timestamp = int(time.time()) - MOUNT_IN_SECONDS
     check_tokens()
-    if not check_tokens():
-        logging.critical('Отсутвует(ют) переменная(ые) окружения')
-        raise KeyError('Отсутвует(ют) переменная(ые) окружения')
+    if check_tokens():
+        logging.critical(
+            f'Отсутвует(ют) переменная(ые) окружения {check_tokens()}')
+        raise KeyError(
+            f'Отсутвует(ют) переменная(ые) окружения {check_tokens()}')
     while True:
         try:
             response = get_api_answer(timestamp)
