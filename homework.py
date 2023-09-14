@@ -47,12 +47,13 @@ def check_tokens():
         PRACTICUM_TOKEN,
         TELEGRAM_TOKEN,
         TELEGRAM_CHAT_ID]
+    tokens_error = [None, '', ' ']
+    token_faild = []
     for token in tokens:
-        if token is None:
-            note = f'Отсутвует(ют) переменная(ые) окружения {token}'
-            logging.critical(note)
-            raise SystemExit(-1)
-    return all(tokens)
+        if token in tokens_error:
+            token_faild.append(token)
+
+    return all(token_faild)
 
 
 def send_message(bot, message):
@@ -61,7 +62,7 @@ def send_message(bot, message):
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug(f'Сообщение отправлено: {message}')
     except telegram.error.TelegramError as telegram_error:
-        logging.error(f'Сообщение не отправлено: {telegram_error}')
+        logger.error(f'Сообщение не отправлено: {telegram_error}')
 
 
 def get_api_answer(timestamp):
@@ -71,49 +72,48 @@ def get_api_answer(timestamp):
         if type(timestamp) != int:
             raise TypeError
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
-        status_code = response.status_code
     except requests.exceptions.RequestException as error:
-        logging.error(f'запрос недоступен: {error}')
+        raise KeyError(f'запрос недоступен: {error}')
     if response.status_code != HTTPStatus.OK:
-        note = f'API код отличный от 200. Был получен код {status_code}'
-        raise requests.RequestException(f'{note}')
+        raise requests.RequestException(
+            f'API код отличный от 200. Был получен код {response.status_code}')
     return response.json()
 
 
 def check_response(response):
     """Проверка ответа от API сервеса."""
-    if not response:
-        note = 'Нет ответа от сервера'
-        raise note
-
     if not isinstance(response, dict):
-        note = 'Ответ API не словарь'
-        raise note
-
+        raise TypeError('Ответ API не словарь')
     if 'homeworks' not in response:
-        note = 'В ответе API нет ключа — список домашних работ'
-        raise note
+        raise TypeError('В ответе API нет ключа — список домашних работ')
     if not isinstance(response['homeworks'], list):
-        note = 'В ответе API домашние работы не список'
-        raise note
+        raise TypeError('В ответе API домашние работы не список')
     return response['homeworks']
 
 
 def parse_status(homework):
     """Проверка статуса домашней работы."""
-    if homework:
+    keys_homework = []
+    anticipated_keys = ['homework_name', 'status']
+    for keys in homework:
+        keys_homework.append(keys)
+    if ('homework_name' and 'status') in keys_homework:
         homework_name = homework.get('homework_name')
         homework_status = homework.get('status')
-        if not homework_name:
-            raise KeyError('В ответе API отсутствует имя работы')
-        if not homework_status:
-            raise KeyError('В ответе API отсутствует имя статус')
+    else:
+        raise KeyError('В ответе API отсутствует имя работы или статус')
+    for key in anticipated_keys:
+        if not homework.get(key):
+            raise KeyError(f'В ответе API отсутствует ключ {key}')
+    verdict = HOMEWORK_VERDICTS.get(homework_status)
+
+    if homework_status in HOMEWORK_VERDICTS:
         verdict = HOMEWORK_VERDICTS.get(homework_status)
-        if not verdict:
-            raise ValueError(
-                f'Недокументированный '
-                f'статус домашней работы - {homework_status}')
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    else:
+        raise ValueError(
+            f'Недокументированный '
+            f'статус домашней работы - {homework_status}')
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
@@ -122,7 +122,9 @@ def main():
     send_message(bot, 'Start')
     timestamp = int(time.time()) - MOUNT_IN_SECONDS
     check_tokens()
-
+    if not check_tokens():
+        logging.critical('Отсутвует(ют) переменная(ые) окружения')
+        raise KeyError('Отсутвует(ют) переменная(ые) окружения')
     while True:
         try:
             response = get_api_answer(timestamp)
@@ -135,7 +137,7 @@ def main():
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
-            logging.error(message)
+            logger.error(message)
 
         finally:
             time.sleep(RETRY_PERIOD)
