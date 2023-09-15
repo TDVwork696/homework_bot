@@ -99,8 +99,6 @@ def parse_status(homework):
                 f'В ответе API отсутствует {key}')
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
-    verdict = HOMEWORK_VERDICTS.get(homework_status)
-
     if homework_status in HOMEWORK_VERDICTS:
         verdict = HOMEWORK_VERDICTS.get(homework_status)
     else:
