@@ -94,15 +94,11 @@ def parse_status(homework):
     """Проверка статуса домашней работы."""
     anticipated_keys = ['homework_name', 'status']
     for key in anticipated_keys:
-        if key in homework:
-            homework_name = homework.get('homework_name')
-            homework_status = homework.get('status')
-        else:
+        if key not in homework:
             raise KeyError(
-                f'В ответе API отсутствует имя работы или статус {key}')
-    for key in anticipated_keys:
-        if not homework.get(key):
-            raise KeyError(f'В ответе API отсутствует ключ {key}')
+                f'В ответе API отсутствует {key}')
+    homework_name = homework.get('homework_name')
+    homework_status = homework.get('status')
     verdict = HOMEWORK_VERDICTS.get(homework_status)
 
     if homework_status in HOMEWORK_VERDICTS:
@@ -119,12 +115,12 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     send_message(bot, 'Start')
     timestamp = int(time.time()) - MOUNT_IN_SECONDS
-    check_tokens()
-    if check_tokens():
+    fail_tokens = check_tokens()
+    if fail_tokens:
         logging.critical(
-            f'Отсутвует(ют) переменная(ые) окружения {check_tokens()}')
+            f'Отсутвует(ют) переменная(ые) окружения {fail_tokens}')
         raise KeyError(
-            f'Отсутвует(ют) переменная(ые) окружения {check_tokens()}')
+            f'Отсутвует(ют) переменная(ые) окружения {fail_tokens}')
     while True:
         try:
             response = get_api_answer(timestamp)
